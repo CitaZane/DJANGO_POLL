@@ -13,7 +13,7 @@ python manage.py runserver
 
 ```
 
-Migrations
+Migrations / run after updating models
 ```bash
 python manage.py makemigrations
 python manage.py migrate
