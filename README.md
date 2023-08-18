@@ -14,7 +14,7 @@ python manage.py runserver
 ```
 
 Migrations / run after updating models
-```bash
+```bashe a
 python manage.py makemigrations
 python manage.py migrate
 
@@ -23,4 +23,9 @@ python manage.py migrate
 Create new App template
 ```bash
 python manage.py startapp <app-name>
+```
+
+Create admin user
+```bash
+python manage.py createsuperuser
 ```
