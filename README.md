@@ -15,6 +15,8 @@ python manage.py runserver
 
 Migrations
 ```bash
+python manage.py makemigrations
+python manage.py migrate
 
 ```
 
