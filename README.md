@@ -6,3 +6,19 @@ Start new app
 ```bash
 django-admin startproject <mysite>
 ```
+
+Start development server
+```bash
+python manage.py runserver
+
+```
+
+Migrations
+```bash
+
+```
+
+Create new App template
+```bash
+python manage.py startapp <app-name>
+```
