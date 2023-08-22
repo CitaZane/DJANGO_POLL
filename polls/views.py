@@ -26,12 +26,23 @@ class IndexView(generic.ListView):
 class DetailView(generic.DetailView):
     model = Question
     template_name = "polls/detail.html"
+    context_object_name = 'question' #custom context name
 
     def get_queryset(self):
         """
         Excludes any questions that aren't published yet.
         """
-        return Question.objects.filter(pub_date__lte=timezone.now())
+        return Question.objects.filter(pub_date__lte=timezone.now(),choice__isnull=False).distinct()
+    
+    def get_context_data(self, **kwargs):
+        """
+        Add additional context to include the related choices
+        for the question.
+        """
+        context = super().get_context_data(**kwargs)
+        question = context['question']
+        context['choices'] = question.choice_set.all()
+        return context
 
 
 class ResultsView(generic.DetailView):
@@ -39,8 +50,8 @@ class ResultsView(generic.DetailView):
     template_name = "polls/results.html"
 
     def get_queryset(self):
-        return Question.objects.filter(pub_date__lte=timezone.now())
-
+        return Question.objects.filter(pub_date__lte=timezone.now(), choice__isnull=False).distinct()
+    
 
 def vote(request, question_id):
     question = get_object_or_404(Question, pk=question_id)

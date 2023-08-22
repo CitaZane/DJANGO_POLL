@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
 
-from .models import Question
+from .models import Question, Choice
 
 
 class QuestionModelTests(TestCase):
@@ -44,6 +44,14 @@ def create_question(question_text, days):
     """
     time = timezone.now() + datetime.timedelta(days=days)
     return Question.objects.create(question_text=question_text, pub_date=time)
+
+
+def create_choice_for_question(choice_text, question):
+    """
+    Create choice with given 'choice_text' for a question with given 'question_id'
+    """
+    choice = Choice.objects.create(choice_text=choice_text, question=question)
+    return choice
 
 
 class QuestionIndexViewTests(TestCase):
@@ -123,9 +131,38 @@ class QuestionDetailViewTests(TestCase):
         """
         past_question = create_question(
             question_text="Past Question.", days=-5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=past_question)
         url = reverse("polls:detail", args=(past_question.id,))
         response = self.client.get(url)
         self.assertContains(response, past_question.question_text)
+
+    def test_past_question_with_choices(self):
+        """
+        The detail view with past question that has at least one choice
+        displays the question and the choice text.
+        """
+        past_question = create_question(question_text="Past question", days=-5)
+        choice = create_choice_for_question(
+            choice_text="I am a choice", question=past_question)
+
+        url = reverse("polls:detail", args=[past_question.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, past_question.question_text)
+        self.assertContains(response, choice.choice_text)
+
+    def test_question_with_no_choices(self):
+        """
+        The detail view of a question with no choices should return 
+        404 error.
+        """
+        question = create_question(question_text="Past question", days=-5)
+        url = reverse("polls:detail", args=[question.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
 
 
 class QuestionResultsViewTests(TestCase):
@@ -145,7 +182,36 @@ class QuestionResultsViewTests(TestCase):
         The result view of a question with pub_date in the past
         displays he questions text.
         """
-        past_question = create_question(question_text="Past question", days=-10)
+        past_question = create_question(
+            question_text="Past question", days=-10)
+        create_choice_for_question(
+            choice_text="I am a choice", question=past_question)
         url = reverse("polls:results", args=(past_question.id,))
         response = self.client.get(url)
         self.assertContains(response, past_question.question_text)
+
+    def test_past_question_with_choices(self):
+        """
+        The results view with past question that has at least one choice
+        displays the question and the choice text.
+        """
+        past_question = create_question(question_text="Past question", days=-5)
+        choice = create_choice_for_question(
+            choice_text="I am a choice", question=past_question)
+
+        url = reverse("polls:results", args=[past_question.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, past_question.question_text)
+        self.assertContains(response, choice.choice_text)
+
+    def test_question_with_no_choices(self):
+        """
+        The results view of a question with no choices should return 
+        404 error.
+        """
+        question = create_question(question_text="Past question", days=-5)
+        url = reverse("polls:results", args=[question.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
