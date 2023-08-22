@@ -1,3 +1,5 @@
+from typing import Any
+from django.db import models
 from django.shortcuts import render, get_object_or_404
 from django.http import Http404
 from django.http import HttpResponse, HttpResponseRedirect
@@ -35,6 +37,9 @@ class DetailView(generic.DetailView):
 class ResultsView(generic.DetailView):
     model = Question
     template_name = "polls/results.html"
+
+    def get_queryset(self):
+        return Question.objects.filter(pub_date__lte=timezone.now())
 
 
 def vote(request, question_id):
