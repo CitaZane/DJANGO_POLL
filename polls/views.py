@@ -23,8 +23,8 @@ class IndexView(generic.ListView):
         """
         if not self.request.user.is_staff:
             now = timezone.now()
-            return Question.objects.filter(pub_date__lte=now,choice__isnull=False).order_by('-pub_date')[:5]
-        return Question.objects.filter(choice__isnull=False).order_by('-pub_date')[:5]
+            return Question.objects.filter(pub_date__lte=now,choice__isnull=False).order_by('-pub_date').distinct()[:5]
+        return Question.objects.filter(choice__isnull=False).order_by('-pub_date').distinct()[:5]
 
 
 class DetailView(generic.DetailView):
@@ -37,9 +37,9 @@ class DetailView(generic.DetailView):
         Excludes any questions that aren't published yet for reglar user.
         """
         if self.request.user.is_staff:
-            return Question.objects.filter(choice__isnull=False)
+            return Question.objects.filter(choice__isnull=False).distinct()
         
-        return Question.objects.filter(pub_date__lte=timezone.now(),choice__isnull=False)
+        return Question.objects.filter(pub_date__lte=timezone.now(),choice__isnull=False).distinct()
 
     def get_context_data(self, **kwargs):
         """
