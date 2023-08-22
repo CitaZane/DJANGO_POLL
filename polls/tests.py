@@ -1,10 +1,29 @@
 import datetime
 
+from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 from django.urls import reverse
 
 from .models import Question, Choice
+
+
+def create_question(question_text, days):
+    """
+    Create a question with the given `question_text` and published the
+    given number of `days` offset to now (negative for questions published
+    in the past, positive for questions that have yet to be published).
+    """
+    time = timezone.now() + datetime.timedelta(days=days)
+    return Question.objects.create(question_text=question_text, pub_date=time)
+
+
+def create_choice_for_question(choice_text, question):
+    """
+    Create choice with given 'choice_text' for a question with given 'question_id'
+    """
+    choice = Choice.objects.create(choice_text=choice_text, question=question)
+    return choice
 
 
 class QuestionModelTests(TestCase):
@@ -36,25 +55,13 @@ class QuestionModelTests(TestCase):
         self.assertIs(recent_question.was_published_recently(), True)
 
 
-def create_question(question_text, days):
-    """
-    Create a question with the given `question_text` and published the
-    given number of `days` offset to now (negative for questions published
-    in the past, positive for questions that have yet to be published).
-    """
-    time = timezone.now() + datetime.timedelta(days=days)
-    return Question.objects.create(question_text=question_text, pub_date=time)
-
-
-def create_choice_for_question(choice_text, question):
-    """
-    Create choice with given 'choice_text' for a question with given 'question_id'
-    """
-    choice = Choice.objects.create(choice_text=choice_text, question=question)
-    return choice
-
-
 class QuestionIndexViewTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin', password='password', is_staff=True)
+        self.normal_user = User.objects.create_user(
+            username='user', password='password', is_staff=False)
+
     def test_no_questions(self):
         """
         If no questions exist, an appropriate message is displayed.
@@ -70,6 +77,8 @@ class QuestionIndexViewTests(TestCase):
         index page.
         """
         question = create_question(question_text="Past question.", days=-30)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
         response = self.client.get(reverse("polls:index"))
         self.assertQuerySetEqual(
             response.context["latest_question_list"],
@@ -93,6 +102,8 @@ class QuestionIndexViewTests(TestCase):
         """
         question = create_question(question_text="Past question.", days=-30)
         create_question(question_text="Future question.", days=30)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
         response = self.client.get(reverse("polls:index"))
         self.assertQuerySetEqual(
             response.context["latest_question_list"],
@@ -104,15 +115,59 @@ class QuestionIndexViewTests(TestCase):
         The questions index page may display multiple questions.
         """
         question1 = create_question(question_text="Past question 1.", days=-30)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question1)
         question2 = create_question(question_text="Past question 2.", days=-5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question2)
         response = self.client.get(reverse("polls:index"))
         self.assertQuerySetEqual(
             response.context["latest_question_list"],
             [question2, question1],
         )
 
+    def test_admin_sees_unpublished_question(self):
+        """
+        The index view of questions with a pub_date in the future
+        should be seen by admin users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+        self.client.login(username="admin", password="password")
+
+        url = reverse("polls:index")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, question.question_text)
+
+    def test_user_cannot_see_unpublished_questions(self):
+        """
+        The index view of questions with bub_date in the future 
+        should't be seen by regular users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+
+        self.client.login(username="user", password="password")
+
+        url = reverse("polls:index")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "No polls are available.")
+        self.assertQuerySetEqual(response.context["latest_question_list"], [])
+
 
 class QuestionDetailViewTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin', password='password', is_staff=True)
+        self.normal_user = User.objects.create_user(
+            username='user', password='password', is_staff=False)
+
     def test_future_question(self):
         """
         The detail view of a question with a pub_date in the future
@@ -163,9 +218,47 @@ class QuestionDetailViewTests(TestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, 404)
 
+    def test_admin_sees_unpublished_question(self):
+        """
+        The detail view of questions with a pub_date in the future
+        should be seen by admin users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+
+        self.client.login(username="admin", password="password")
+
+        url = reverse("polls:detail", args=[question.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, question.question_text)
+
+    def test_user_cannot_see_unpublished_questions(self):
+        """
+        The detail view of questions with bub_date in the future 
+        should't be seen by regular users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+
+        self.client.login(username="user", password="password")
+
+        url = reverse("polls:detail", args=[question.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 404)
 
 
 class QuestionResultsViewTests(TestCase):
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            username='admin', password='password', is_staff=True)
+        self.normal_user = User.objects.create_user(
+            username='user', password='password', is_staff=False)
+
     def test_future_question(self):
         """
         The result view of a question with a pub_date in the future
@@ -214,4 +307,37 @@ class QuestionResultsViewTests(TestCase):
         question = create_question(question_text="Past question", days=-5)
         url = reverse("polls:results", args=[question.id])
         response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+    def test_admin_sees_unpublished_question(self):
+        """
+        The results view of questions with a pub_date in the future
+        should be seen by admin users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+
+        self.client.login(username="admin", password="password")
+
+        url = reverse("polls:results", args=[question.id])
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, question.question_text)
+
+    def test_user_cannot_see_unpublished_questions(self):
+        """
+        The dresults view of questions with bub_date in the future 
+        should't be seen by regular users.
+        """
+        question = create_question(question_text="I am the future", days=5)
+        create_choice_for_question(
+            choice_text="I am a choice", question=question)
+
+        self.client.login(username="user", password="password")
+
+        url = reverse("polls:results", args=[question.id])
+        response = self.client.get(url)
+
         self.assertEqual(response.status_code, 404)

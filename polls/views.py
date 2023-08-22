@@ -18,9 +18,13 @@ class IndexView(generic.ListView):
     def get_queryset(self):
         """
         Return the last five published questions (not including those set to be
-        published in the future).
+        published in the future). If the request is made by admin, 
+        include alsu unpublished questions.
         """
-        return Question.objects.filter(pub_date__lte=timezone.now()).order_by("-pub_date")[:5]
+        if not self.request.user.is_staff:
+            now = timezone.now()
+            return Question.objects.filter(pub_date__lte=now,choice__isnull=False).order_by('-pub_date')[:5]
+        return Question.objects.filter(choice__isnull=False).order_by('-pub_date')[:5]
 
 
 class DetailView(generic.DetailView):
@@ -30,10 +34,13 @@ class DetailView(generic.DetailView):
 
     def get_queryset(self):
         """
-        Excludes any questions that aren't published yet.
+        Excludes any questions that aren't published yet for reglar user.
         """
-        return Question.objects.filter(pub_date__lte=timezone.now(),choice__isnull=False).distinct()
-    
+        if self.request.user.is_staff:
+            return Question.objects.filter(choice__isnull=False)
+        
+        return Question.objects.filter(pub_date__lte=timezone.now(),choice__isnull=False)
+
     def get_context_data(self, **kwargs):
         """
         Add additional context to include the related choices
@@ -43,6 +50,7 @@ class DetailView(generic.DetailView):
         question = context['question']
         context['choices'] = question.choice_set.all()
         return context
+    
 
 
 class ResultsView(generic.DetailView):
@@ -50,6 +58,8 @@ class ResultsView(generic.DetailView):
     template_name = "polls/results.html"
 
     def get_queryset(self):
+        if self.request.user.is_staff:
+            return Question.objects.filter( choice__isnull=False).distinct()
         return Question.objects.filter(pub_date__lte=timezone.now(), choice__isnull=False).distinct()
     
 
