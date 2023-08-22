@@ -29,3 +29,8 @@ Create admin user
 ```bash
 python manage.py createsuperuser
 ```
+
+Running tests
+```bash
+python manage.py test <app_name>
+```
